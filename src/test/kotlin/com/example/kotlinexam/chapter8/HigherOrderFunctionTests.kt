@@ -4,6 +4,14 @@ import org.junit.jupiter.api.Test
 import java.lang.StringBuilder
 
 class HigherOrderFunction {
+    val log = listOf(
+        SiteVisit("/", 34.0, OS.WINDOWS),
+        SiteVisit("/", 22.0, OS.MAC),
+        SiteVisit("/login", 12.0, OS.WINDOWS),
+        SiteVisit("/signup", 8.0, OS.IOS),
+        SiteVisit("/", 16.3, OS.ANDROID)
+    )
+
     @Test
     fun test() {
         val url = "http://kotl.in"
@@ -26,6 +34,54 @@ class HigherOrderFunction {
     fun test3() {
         val calculator = getShippingCostCalculator(Delivery.EXPEDITED)
         println("Shipping costs ${calculator(Order(3))}")
+    }
+
+    @Test
+    fun test4() {
+        val contacts = listOf(Person("Dmitry", "Jemerov", "123-4567"),
+            Person("Svetlana", "Isakova", null))
+        val contactListFilters = ContactListFilters()
+        with(contactListFilters) {
+            prefix = "Dm"
+            onlyWithPhoneNumber = true
+        }
+
+        println(contacts.filter(contactListFilters.getPredicate()))
+    }
+
+    @Test
+    fun test5() {
+        val averageWindowDuration = log
+            .filter { it.os == OS.WINDOWS }
+            .map(SiteVisit::duration)
+            .average()
+
+        println(averageWindowDuration)
+    }
+
+    // 일반 함수를 통해 중복 제거하기
+    @Test
+    fun test6() {
+        println(log.averageDurationFor(OS.WINDOWS))
+        println(log.averageDurationFor(OS.MAC))
+    }
+
+    // filter 조건에 OS를 여러개 집어넣기
+    @Test
+    fun test7() {
+        val averageMobileDuration = log.filter { it.os in setOf(OS.IOS, OS.ANDROID) }
+            .map(SiteVisit::duration)
+            .average()
+
+        println(averageMobileDuration)
+
+        // 위 코드에서 중복 제거
+        fun List<SiteVisit>.averageMobileDurationFor(predicate: (SiteVisit) -> Boolean) =
+            filter(predicate).map(SiteVisit::duration).average()
+
+        println(log.averageMobileDurationFor { it.os in setOf(OS.IOS, OS.ANDROID) })
+
+        println(log.averageMobileDurationFor { it.os == OS.IOS && it.path == "/signup" })
     }
 }
 
@@ -123,3 +179,38 @@ fun getShippingCostCalculator(delivery: Delivery): (Order) -> Double {
     }
     return { order -> 1.2 * order.itemCount }
 }
+
+data class Person(
+    val firstName: String,
+    val lastName: String,
+    val phoneNumber: String?
+)
+
+class ContactListFilters {
+    var prefix: String = ""
+    var onlyWithPhoneNumber: Boolean = false
+    fun getPredicate(): (Person) -> Boolean {
+        val startsWithPrefix = { p: Person ->
+            p.firstName.startsWith(prefix) || p.lastName.startsWith(prefix)
+        }
+
+        if (!onlyWithPhoneNumber) {
+            return startsWithPrefix  // 함수 타입의 변수를 리턴한다.
+        }
+        return {
+            startsWithPrefix(it) && it.phoneNumber != null // 람다를 반환한다.
+        }
+    }
+}
+
+// 람다를 활용한 중복 제거
+data class SiteVisit(
+    val path: String,
+    val duration: Double,
+    val os : OS
+)
+
+enum class OS { WINDOWS, LINUX, MAC, IOS, ANDROID }
+
+// 1차
+fun List<SiteVisit>.averageDurationFor(os: OS) = filter { it.os == os }.map(SiteVisit::duration).average()
